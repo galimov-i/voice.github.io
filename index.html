@@ -159,6 +159,46 @@
         .status.error {
             background: #ffebee;
             color: #f44336;
+            word-break: break-word;
+        }
+
+        .error-details {
+            background: #fff3e0;
+            border: 1px solid #ffb74d;
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin-top: 10px;
+            font-size: 12px;
+            text-align: left;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .error-details h4 {
+            margin: 0 0 5px 0;
+            color: #e65100;
+        }
+
+        .error-details pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #bf360c;
+        }
+
+        .copy-error-btn {
+            background: #ff9800;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        .copy-error-btn:hover {
+            background: #f57c00;
         }
 
         .status.info {
@@ -455,8 +495,7 @@
                             { urls: 'stun:stun3.l.google.com:19302' },
                             { urls: 'stun:stun4.l.google.com:19302' },
                             // Альтернативные STUN серверы
-                            { urls: 'stun:stun.services.mozilla.com' },
-                            { urls: 'stun:stun1.l.google.com:19302?transport=udp' }
+                            { urls: 'stun:stun.services.mozilla.com' }
                         ]
                     }
                 };
@@ -555,6 +594,8 @@
                 });
 
                 // Соединение восстановлено
+                peer.on('connection', () => {
+                    console.log('✅ Connection restored');
                 peer.on('connection', (conn) => {
                     console.log('✅ Data connection established:', conn);
                 });
@@ -730,9 +771,16 @@
                     errorMsg = 'Микрофон не найден';
                 } else if (error.name === 'NotReadableError') {
                     errorMsg = 'Микрофон занят другим приложением';
+                } else if (error.message && error.message.includes('not a valid stun')) {
+                    errorMsg = 'Ошибка конфигурации STUN сервера';
                 }
                 
-                showStatus(errorMsg, 'error');
+                // Показываем ошибку с деталями
+                showStatus(errorMsg, 'error', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
                 
                 // Очищаем поток если был создан
                 if (localStream) {
@@ -977,6 +1025,64 @@
 
         // ==================== Вспомогательные функции ====================
         
+        // Показать статус с возможностью деталей ошибки
+        function showStatus(message, type, errorDetails = null) {
+            callStatus.textContent = message;
+            callStatus.className = 'status ' + type;
+            callStatus.classList.remove('hidden');
+
+            // Если есть детали ошибки, показываем их
+            if (errorDetails && type === 'error') {
+                let detailsDiv = callStatus.querySelector('.error-details');
+                
+                if (!detailsDiv) {
+                    detailsDiv = document.createElement('div');
+                    detailsDiv.className = 'error-details';
+                    callStatus.appendChild(detailsDiv);
+                }
+
+                const errorText = typeof errorDetails === 'object' 
+                    ? JSON.stringify(errorDetails, null, 2) 
+                    : String(errorDetails);
+
+                detailsDiv.innerHTML = `
+                    <h4>📋 Детали ошибки:</h4>
+                    <pre>${errorText}</pre>
+                    <button class="copy-error-btn" onclick="copyErrorDetails(this)">📋 Копировать ошибку</button>
+                `;
+            } else {
+                // Удаляем детали если это не ошибка
+                const detailsDiv = callStatus.querySelector('.error-details');
+                if (detailsDiv) {
+                    detailsDiv.remove();
+                }
+            }
+
+            // Скрываем статус через 10 секунд если это не ошибка
+            if (type !== 'error') {
+                setTimeout(() => {
+                    if (callStatus.textContent === message) {
+                        callStatus.classList.add('hidden');
+                        const detailsDiv = callStatus.querySelector('.error-details');
+                        if (detailsDiv) detailsDiv.remove();
+                    }
+                }, 10000);
+            }
+        }
+
+        // Копировать детали ошибки
+        function copyErrorDetails(btn) {
+            const pre = btn.parentElement.querySelector('pre');
+            if (pre) {
+                navigator.clipboard.writeText(pre.textContent).then(() => {
+                    btn.textContent = '✅ Скопировано!';
+                    setTimeout(() => {
+                        btn.textContent = '📋 Копировать ошибку';
+                    }, 2000);
+                });
+            }
+        }
+        
         // Показать кнопку переподключения
         function showReconnectButton() {
             // Удаляем существующую кнопку если есть
@@ -1015,21 +1121,6 @@
             setTimeout(() => {
                 initPeer();
             }, 1000);
-        }
-
-        function showStatus(message, type) {
-            callStatus.textContent = message;
-            callStatus.className = 'status ' + type;
-            callStatus.classList.remove('hidden');
-
-            // Скрываем статус через 5 секунд если это не ошибка
-            if (type !== 'error') {
-                setTimeout(() => {
-                    if (callStatus.textContent === message) {
-                        callStatus.classList.add('hidden');
-                    }
-                }, 5000);
-            }
         }
 
         // Копирование ID
