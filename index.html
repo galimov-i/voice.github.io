@@ -343,6 +343,7 @@
 <body>
     <div class="container">
         <h1>📞 SimplePhone</h1>
+        <a href="diagnostic.html" style="color: #667eea; font-size: 12px; text-decoration: none;">🔍 Диагностика</a>
 
         <!-- ID Section -->
         <div class="section">
@@ -442,30 +443,69 @@
         // ==================== Инициализация ====================
         function initPeer() {
             try {
+                // Улучшенная конфигурация с несколькими STUN серверами
+                const peerConfig = {
+                    debug: 2,
+                    config: {
+                        iceServers: [
+                            // Google STUN серверы (надежные)
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:stun1.l.google.com:19302' },
+                            { urls: 'stun:stun2.l.google.com:19302' },
+                            { urls: 'stun:stun3.l.google.com:19302' },
+                            { urls: 'stun:stun4.l.google.com:19302' },
+                            // Альтернативные STUN серверы
+                            { urls: 'stun:stun.services.mozilla.com' },
+                            { urls: 'stun:stun1.l.google.com:19302?transport=udp' }
+                        ]
+                    }
+                };
+
+                // Пробуем разные сервера PeerJS
+                const peerServers = [
+                    'wss://0.peerjs.com',      // Основной
+                    'wss://peerjs.com',        // Альтернатива
+                    'wss://cloud.peerjs.com'   // Облачный
+                ];
+
+                // Создаем Peer с первым сервером
                 peer = new Peer(null, {
-                    debug: 2
+                    ...peerConfig
                 });
 
                 // Успешное подключение к серверу PeerJS
                 peer.on('open', (id) => {
+                    console.log('✅ Connected to PeerJS with ID:', id);
                     myIdDisplay.innerHTML = id;
                     myIdDisplay.classList.remove('copied');
                     showStatus('Готов к звонкам', 'info');
+                    
+                    // Скрываем кнопку переподключения если есть
+                    const reconnectBtn = document.getElementById('reconnect-btn');
+                    if (reconnectBtn) reconnectBtn.remove();
                 });
 
                 // Ошибка подключения
                 peer.on('error', (err) => {
-                    console.error('PeerJS error:', err);
+                    console.error('❌ PeerJS error:', err);
                     let errorMsg = 'Ошибка соединения';
                     
                     if (err.type === 'peer-unavailable') {
-                        errorMsg = 'Собеседник не найден';
+                        errorMsg = 'Собеседник не найден. Проверьте ID';
                     } else if (err.type === 'network') {
-                        errorMsg = 'Ошибка сети. Проверьте интернет';
+                        errorMsg = 'Ошибка сети. Проверьте интернет-соединение';
                     } else if (err.type === 'disconnected') {
                         errorMsg = 'Соединение с сервером потеряно';
                     } else if (err.type === 'unavailable-id') {
                         errorMsg = 'Этот ID уже занят';
+                    } else if (err.type === 'ssl-error') {
+                        errorMsg = 'Ошибка SSL. Попробуйте другой браузер';
+                    } else if (err.type === 'server-error') {
+                        errorMsg = 'Ошибка сервера PeerJS. Попробуйте переподключиться';
+                    } else if (err.type === 'socket-error') {
+                        errorMsg = 'Ошибка сокета. Проверьте интернет';
+                    } else {
+                        errorMsg = 'Ошибка: ' + err.type;
                     }
                     
                     showStatus(errorMsg, 'error');
@@ -474,17 +514,43 @@
                     if (currentCall) {
                         endCall();
                     }
+                    
+                    // Показываем кнопку переподключения
+                    showReconnectButton();
                 });
 
                 // Потеря соединения с сервером
                 peer.on('disconnected', () => {
+                    console.log('⚠️ Disconnected from PeerJS');
                     showStatus('Соединение с сервером потеряно. Переподключение...', 'error');
-                    // Пытаемся переподключиться
-                    setTimeout(() => {
+                    
+                    // Пытаемся переподключиться несколько раз
+                    let retryCount = 0;
+                    const maxRetries = 5;
+                    
+                    const retryConnection = () => {
+                        if (retryCount >= maxRetries) {
+                            showStatus('Не удалось подключиться. Нажмите "Переподключиться"', 'error');
+                            showReconnectButton();
+                            return;
+                        }
+                        
+                        retryCount++;
+                        console.log(`🔄 Reconnection attempt ${retryCount}/${maxRetries}`);
+                        
                         if (peer && !peer.destroyed) {
                             peer.reconnect();
                         }
-                    }, 3000);
+                        
+                        setTimeout(retryConnection, 3000);
+                    };
+                    
+                    setTimeout(retryConnection, 2000);
+                });
+
+                // Соединение восстановлено
+                peer.on('connection', () => {
+                    console.log('✅ Connection restored');
                 });
 
                 // Входящий звонок
@@ -897,6 +963,47 @@
         }
 
         // ==================== Вспомогательные функции ====================
+        
+        // Показать кнопку переподключения
+        function showReconnectButton() {
+            // Удаляем существующую кнопку если есть
+            const existingBtn = document.getElementById('reconnect-btn');
+            if (existingBtn) existingBtn.remove();
+            
+            // Создаем кнопку
+            const reconnectBtn = document.createElement('button');
+            reconnectBtn.id = 'reconnect-btn';
+            reconnectBtn.className = 'retry-audio-btn';
+            reconnectBtn.textContent = '🔄 Переподключиться к серверу';
+            reconnectBtn.style.marginTop = '20px';
+            reconnectBtn.onclick = () => {
+                reconnectPeer();
+            };
+            
+            // Добавляем после статуса
+            callStatus.parentNode.insertBefore(reconnectBtn, callStatus.nextSibling);
+        }
+
+        // Ручное переподключение к серверу
+        function reconnectPeer() {
+            console.log('🔄 Manual reconnection...');
+            showStatus('Переподключение...', 'info');
+            
+            // Удаляем кнопку
+            const reconnectBtn = document.getElementById('reconnect-btn');
+            if (reconnectBtn) reconnectBtn.remove();
+            
+            // Закрываем текущее соединение
+            if (peer && !peer.destroyed) {
+                peer.destroy();
+            }
+            
+            // Создаем новое соединение
+            setTimeout(() => {
+                initPeer();
+            }, 1000);
+        }
+
         function showStatus(message, type) {
             callStatus.textContent = message;
             callStatus.className = 'status ' + type;

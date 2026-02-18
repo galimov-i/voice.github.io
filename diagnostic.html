@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Диагностика SimplePhone</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .test-item {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ddd;
+        }
+        .test-item.pass {
+            background: #e8f5e9;
+            border-left-color: #4caf50;
+        }
+        .test-item.fail {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+        .test-item.warning {
+            background: #fff3e0;
+            border-left-color: #ff9800;
+        }
+        .test-item h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .test-item .status {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .test-item .status.pass { color: #4caf50; }
+        .test-item .status.fail { color: #f44336; }
+        .test-item .status.warning { color: #ff9800; }
+        .test-item .details {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .console-output .error { color: #f48771; }
+        .console-output .success { color: #89d185; }
+        .console-output .info { color: #4fc1ff; }
+        .summary {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+        .summary h2 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Диагностика SimplePhone</h1>
+        <p>Эта страница поможет проверить, поддерживает ли ваш браузер все необходимые технологии для работы аудиозвонков.</p>
+        
+        <button onclick="runAllTests()">▶️ Запустить все тесты</button>
+        <button onclick="clearConsole()">🗑️ Очистить консоль</button>
+
+        <div id="tests-container"></div>
+
+        <div class="summary">
+            <h2>📋 Итоговая диагностика</h2>
+            <div id="summary-content">
+                <p>Нажмите "Запустить все тесты" для начала диагностики.</p>
+            </div>
+        </div>
+
+        <h3>🖥️ Консоль</h3>
+        <div class="console-output" id="console-output">
+            <div class="info">Готов к тестированию...</div>
+        </div>
+    </div>
+
+    <script>
+        const testsContainer = document.getElementById('tests-container');
+        const consoleOutput = document.getElementById('console-output');
+        const summaryContent = document.getElementById('summary-content');
+
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleOutput.appendChild(div);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        function clearConsole() {
+            consoleOutput.innerHTML = '<div class="info">Консоль очищена</div>';
+        }
+
+        function createTestItem(title, status, details) {
+            const div = document.createElement('div');
+            div.className = `test-item ${status}`;
+            
+            const statusText = {
+                'pass': '✅ Пройден',
+                'fail': '❌ Не пройден',
+                'warning': '⚠️ Предупреждение'
+            };
+
+            div.innerHTML = `
+                <h3>${title}</h3>
+                <div class="status ${status}">${statusText[status]}</div>
+                <div class="details">${details}</div>
+            `;
+            
+            return div;
+        }
+
+        async function testBrowserSupport() {
+            log('Проверка поддержки браузера...', 'info');
+            
+            const results = [];
+            
+            // Проверка WebSocket
+            const wsSupported = !!window.WebSocket;
+            results.push({
+                title: 'Поддержка WebSocket',
+                status: wsSupported ? 'pass' : 'fail',
+                details: wsSupported ? 'WebSocket поддерживается' : 'WebSocket не поддерживается. Обновите браузер.'
+            });
+            log(`WebSocket: ${wsSupported ? '✅' : '❌'}`, wsSupported ? 'success' : 'error');
+
+            // Проверка WebRTC
+            const rtcSupported = !!(window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection);
+            results.push({
+                title: 'Поддержка WebRTC',
+                status: rtcSupported ? 'pass' : 'fail',
+                details: rtcSupported ? 'WebRTC поддерживается' : 'WebRTC не поддерживается. Используйте Chrome, Firefox или Safari.'
+            });
+            log(`WebRTC: ${rtcSupported ? '✅' : '❌'}`, rtcSupported ? 'success' : 'error');
+
+            // Проверка getUserMedia
+            const gumSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+            results.push({
+                title: 'Доступ к медиа-устройствам',
+                status: gumSupported ? 'pass' : 'fail',
+                details: gumSupported ? 'getUserMedia доступен' : 'getUserMedia не доступен. Проверьте разрешения.'
+            });
+            log(`getUserMedia: ${gumSupported ? '✅' : '❌'}`, gumSupported ? 'success' : 'error');
+
+            // Проверка HTTPS
+            const isHttps = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            results.push({
+                title: 'HTTPS соединение',
+                status: isHttps ? 'pass' : 'warning',
+                details: isHttps ? 'Используется HTTPS (требуется для микрофона)' : 'Не используется HTTPS. Микрофон может быть недоступен.'
+            });
+            log(`HTTPS: ${isHttps ? '✅' : '⚠️'}`, isHttps ? 'success' : 'info');
+
+            // Проверка AudioContext
+            const audioContextSupported = !!(window.AudioContext || window.webkitAudioContext);
+            results.push({
+                title: 'Web Audio API',
+                status: audioContextSupported ? 'pass' : 'warning',
+                details: audioContextSupported ? 'AudioContext поддерживается' : 'AudioContext не поддерживается. Звук звонка может не работать.'
+            });
+            log(`AudioContext: ${audioContextSupported ? '✅' : '⚠️'}`, audioContextSupported ? 'success' : 'info');
+
+            // Информация о браузере
+            const browserInfo = `
+                <strong>Браузер:</strong> ${navigator.userAgent}<br>
+                <strong>Платформа:</strong> ${navigator.platform}<br>
+                <strong>Язык:</strong> ${navigator.language}
+            `;
+            results.push({
+                title: 'Информация о системе',
+                status: 'pass',
+                details: browserInfo
+            });
+
+            return results;
+        }
+
+        async function testMicrophone() {
+            log('Проверка доступа к микрофону...', 'info');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Проверяем треки
+                const audioTracks = stream.getAudioTracks();
+                const hasTrack = audioTracks.length > 0;
+                
+                // Останавливаем поток
+                stream.getTracks().forEach(track => track.stop());
+                
+                if (hasTrack) {
+                    log('Микрофон: ✅ Доступен и работает', 'success');
+                    return {
+                        title: 'Микрофон',
+                        status: 'pass',
+                        details: 'Микрофон доступен и работает. Разрешение получено.'
+                    };
+                } else {
+                    log('Микрофон: ❌ Нет аудио треков', 'error');
+                    return {
+                        title: 'Микрофон',
+                        status: 'fail',
+                        details: 'Микрофон не найден или недоступен. Проверьте подключение и разрешения.'
+                    };
+                }
+            } catch (error) {
+                log(`Микрофон: ❌ Ошибка - ${error.name}`, 'error');
+                
+                let details = '';
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    details = 'Доступ к микрофону запрещен. Разрешите доступ в настройках браузера.';
+                } else if (error.name === 'NotFoundError') {
+                    details = 'Микрофон не найден. Подключите микрофон и попробуйте снова.';
+                } else if (error.name === 'NotReadableError') {
+                    details = 'Микрофон занят другим приложением. Закройте другие приложения использующие микрофон.';
+                } else {
+                    details = `Ошибка: ${error.name} - ${error.message}`;
+                }
+                
+                return {
+                    title: 'Микрофон',
+                    status: 'fail',
+                    details: details
+                };
+            }
+        }
+
+        async function testPeerJSServer() {
+            log('Проверка соединения с PeerJS сервером...', 'info');
+            
+            const servers = [
+                'https://0.peerjs.com',
+                'https://peerjs.com',
+                'https://cloud.peerjs.com'
+            ];
+            
+            const results = [];
+            
+            for (const server of servers) {
+                try {
+                    const response = await fetch(server, { mode: 'no-cors' });
+                    log(`${server}: ✅ Доступен`, 'success');
+                    results.push(`${server}: ✅`);
+                } catch (error) {
+                    log(`${server}: ❌ Недоступен`, 'error');
+                    results.push(`${server}: ❌`);
+                }
+            }
+            
+            const availableCount = results.filter(r => r.includes('✅')).length;
+            const status = availableCount > 0 ? 'pass' : 'fail';
+            
+            return {
+                title: 'PeerJS серверы',
+                status: status,
+                details: `Доступно серверов: ${availableCount}/${servers.length}<br>${results.join('<br>')}`
+            };
+        }
+
+        async function testWebRTCConnection() {
+            log('Проверка WebRTC соединения...', 'info');
+            
+            try {
+                const pc = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' }
+                    ]
+                });
+                
+                log('Создание RTCPeerConnection: ✅', 'success');
+                
+                // Создаем offer
+                const offer = await pc.createOffer();
+                log('Создание Offer: ✅', 'success');
+                
+                await pc.setLocalDescription(offer);
+                log('Установка LocalDescription: ✅', 'success');
+                
+                // Ждем ICE кандидатов
+                let iceCandidates = 0;
+                const icePromise = new Promise((resolve) => {
+                    pc.onicecandidate = (event) => {
+                        if (event.candidate) {
+                            iceCandidates++;
+                            log(`ICE кандидат: ${event.candidate.type}`, 'info');
+                        } else {
+                            resolve();
+                        }
+                    };
+                    
+                    // Таймаут 5 секунд
+                    setTimeout(() => resolve(), 5000);
+                });
+                
+                await icePromise;
+                
+                pc.close();
+                
+                if (iceCandidates > 0) {
+                    log(`WebRTC: ✅ Получено ${iceCandidates} ICE кандидатов`, 'success');
+                    return {
+                        title: 'WebRTC соединение',
+                        status: 'pass',
+                        details: `WebRTC работает корректно. Получено ${iceCandidates} ICE кандидатов.`
+                    };
+                } else {
+                    log('WebRTC: ⚠️ Нет ICE кандидатов', 'info');
+                    return {
+                        title: 'WebRTC соединение',
+                        status: 'warning',
+                        details: 'WebRTC работает, но ICE кандидаты не получены. Это может указывать на проблемы с NAT.'
+                    };
+                }
+                
+            } catch (error) {
+                log(`WebRTC: ❌ Ошибка - ${error.message}`, 'error');
+                return {
+                    title: 'WebRTC соединение',
+                    status: 'fail',
+                    details: `Ошибка WebRTC: ${error.message}. Проверьте поддержку WebRTC в браузере.`
+                };
+            }
+        }
+
+        function generateSummary(results) {
+            const passCount = results.filter(r => r.status === 'pass').length;
+            const failCount = results.filter(r => r.status === 'fail').length;
+            const warningCount = results.filter(r => r.status === 'warning').length;
+            
+            let summary = `
+                <p><strong>Всего тестов:</strong> ${results.length}</p>
+                <p><strong>✅ Пройдено:</strong> ${passCount}</p>
+                <p><strong>❌ Не пройдено:</strong> ${failCount}</p>
+                <p><strong>⚠️ Предупреждения:</strong> ${warningCount}</p>
+                <hr>
+            `;
+            
+            if (failCount === 0 && warningCount === 0) {
+                summary += `
+                    <h3 style="color: #4caf50;">🎉 Отлично!</h3>
+                    <p>Все тесты пройдены успешно. Ваш браузер полностью поддерживает SimplePhone.</p>
+                    <p><a href="index.html" style="color: #667eea;">← Вернуться к приложению</a></p>
+                `;
+            } else if (failCount > 0) {
+                summary += `
+                    <h3 style="color: #f44336;">⚠️ Обнаружены проблемы</h3>
+                    <p>Некоторые тесты не пройдены. SimplePhone может не работать корректно.</p>
+                    <p><strong>Рекомендации:</strong></p>
+                    <ul>
+                        <li>Обновите браузер до последней версии</li>
+                        <li>Разрешите доступ к микрофону в настройках браузера</li>
+                        <li>Используйте Chrome, Firefox или Safari</li>
+                        <li>Проверьте интернет-соединение</li>
+                    </ul>
+                `;
+            } else {
+                summary += `
+                    <h3 style="color: #ff9800;">⚠️ Есть предупреждения</h3>
+                    <p>SimplePhone должен работать, но могут быть некоторые ограничения.</p>
+                    <p>Рекомендуется использовать Chrome для лучшей совместимости.</p>
+                    <p><a href="index.html" style="color: #667eea;">← Попробовать приложение</a></p>
+                `;
+            }
+            
+            summaryContent.innerHTML = summary;
+        }
+
+        async function runAllTests() {
+            testsContainer.innerHTML = '';
+            summaryContent.innerHTML = '<p>⏳ Тестирование в процессе...</p>';
+            clearConsole();
+            
+            log('🚀 Запуск диагностики...', 'info');
+            
+            const allResults = [];
+            
+            // Тест 1: Поддержка браузера
+            const browserTests = await testBrowserSupport();
+            allResults.push(...browserTests);
+            browserTests.forEach(test => {
+                testsContainer.appendChild(createTestItem(test.title, test.status, test.details));
+            });
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Тест 2: Микрофон
+            const micTest = await testMicrophone();
+            allResults.push(micTest);
+            testsContainer.appendChild(createTestItem(micTest.title, micTest.status, micTest.details));
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Тест 3: PeerJS серверы
+            const peerjsTest = await testPeerJSServer();
+            allResults.push(peerjsTest);
+            testsContainer.appendChild(createTestItem(peerjsTest.title, peerjsTest.status, peerjsTest.details));
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Тест 4: WebRTC соединение
+            const webrtcTest = await testWebRTCConnection();
+            allResults.push(webrtcTest);
+            testsContainer.appendChild(createTestItem(webrtcTest.title, webrtcTest.status, webrtcTest.details));
+            
+            // Генерируем итоги
+            generateSummary(allResults);
+            
+            log('✅ Диагностика завершена', 'success');
+        }
+
+        // Автоматический запуск при загрузке
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 1000);
+        });
+    </script>
+</body>
+</html>
