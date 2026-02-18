@@ -470,12 +470,18 @@
 
                 // Создаем Peer с первым сервером
                 peer = new Peer(null, {
-                    ...peerConfig
+                    ...peerConfig,
+                    // Явно указываем рабочий сервер
+                    host: '0.peerjs.com',
+                    port: 443,
+                    path: '/',
+                    secure: true
                 });
 
                 // Успешное подключение к серверу PeerJS
                 peer.on('open', (id) => {
                     console.log('✅ Connected to PeerJS with ID:', id);
+                    console.log('✅ Server: 0.peerjs.com:443');
                     myIdDisplay.innerHTML = id;
                     myIdDisplay.classList.remove('copied');
                     showStatus('Готов к звонкам', 'info');
@@ -549,9 +555,16 @@
                 });
 
                 // Соединение восстановлено
-                peer.on('connection', () => {
-                    console.log('✅ Connection restored');
+                peer.on('connection', (conn) => {
+                    console.log('✅ Data connection established:', conn);
                 });
+
+                // Логирование состояния соединения
+                setInterval(() => {
+                    if (peer && !peer.destroyed) {
+                        console.log('📡 PeerJS status:', peer.disconnected ? 'disconnected' : 'connected');
+                    }
+                }, 30000); // Каждые 30 секунд
 
                 // Входящий звонок
                 peer.on('call', (call) => {
